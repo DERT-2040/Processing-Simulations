@@ -1,7 +1,7 @@
 int PIXELS_TO_METERS = 300;
 float GRAVITY = 9.81 * PIXELS_TO_METERS;
 float ANGLE_LOWER_LIMIT = 0.523599; //In radians: 30 degrees
-float ANGLE_UPPER_LIMIT = 1.22173;//In radians: 70 degrees
+float ANGLE_UPPER_LIMIT = 1.48;//In radians: 70 degrees
 
 boolean adjustTargetHeight = false;
 float velocity = 15 * PIXELS_TO_METERS;
@@ -24,7 +24,7 @@ void setup() {
   strokeWeight(4);
 }
 void draw() {
-  angles = calculateTolerances();
+  angles = calculateAngleTolerances();
   background(192, 64, 0);
   if(moveRobTar){//If the key is pressed 
     if(mouseY < robotHeight-50 && adjustTargetHeight){//if the mouse is above the robot and the target is allowed to move
@@ -42,14 +42,17 @@ void draw() {
   //Display projectile's motion. 
   if(angles[0][0] > ANGLE_LOWER_LIMIT){
     line(robotPos, robotHeight, robotPos+100*cos(angles[0][0]),robotHeight-1*(100*sin(angles[0][0])));
-    graphProjectile(angles[0][0]);
-    graphProjectile(angles[0][0]+angles[0][1]);// Show the arcs used for the tolerances
-    graphProjectile(angles[0][0]-angles[0][1]);
+    graphProjectile(angles[0][0],velocity);
+    //graphProjectile(angles[0][0]+angles[0][1],velocity);// Show the arcs used for the tolerances
+    //graphProjectile(angles[0][0]-angles[0][1],velocity);
   }
   if(angles[1][0] < ANGLE_UPPER_LIMIT){
     line(robotPos, robotHeight, robotPos+100*cos(angles[1][0]),robotHeight-1*(100*sin(angles[1][0])));
-    graphProjectile(angles[1][0]);
+    graphProjectile(angles[1][0],velocity);
   }
+  
+  float risingVeloTolerance = calculateVelocityTolerance(angles[0][0]);
+  float fallingVeloTolerance = calculateVelocityTolerance(angles[1][0]);
   
   textSize(30); //Prints out all data
   text("C to Move Robot and Target, L to Lock Target, Up/Down to Change Velocity  " ,10,40);
@@ -61,6 +64,8 @@ void draw() {
   text("FALLING ANGLE = " + (angles[1][0] * 180 / PI) ,10,165);
   text("RISING ANGLE TOLERANCE = " + (angles[0][1] * 180 / PI) ,10,190);
   text("FALLING ANGLE TOLERANCE = " + (angles[1][1] * 180 / PI) ,10,215);
+  text("RISING ANGLE VELOCITY TOLERANCE = " + risingVeloTolerance ,10,240);
+  text("FALLING ANGLE VELOCITY TOLERANCE = " + fallingVeloTolerance  ,10,265);
   if(debugPrint){
     debugPrint = false;
   }
@@ -77,10 +82,10 @@ void keyPressed() {
        adjustTargetHeight = !adjustTargetHeight;
    }
    if(keyCode == DOWN && velocity > 0){ //Increments velocity of projectile.
-     velocity -=0.1* PIXELS_TO_METERS;
+     velocity -= 0.1* PIXELS_TO_METERS;
    }
    if(keyCode == UP && velocity > 20){
-     velocity +=0.1* PIXELS_TO_METERS;
+     velocity += 0.1* PIXELS_TO_METERS;
    }
 }
 void mousePressed() {
@@ -108,9 +113,9 @@ float[] calculateTrajectory(int tHeight){
   return angles;
 }
 //Graphs trajectory with projectile velocity and angle of launch. Independent of other calculations
-void graphProjectile(float angle){
-  float xVelocity = velocity*cos(angle);
-  float yVelocity = velocity*sin(angle);
+void graphProjectile(float angle, float initVelocity){
+  float xVelocity = initVelocity*cos(angle);
+  float yVelocity = initVelocity*sin(angle);
   int heightP = 0;
   int lengthP = 0;
   float timeIterator = 0.005;
@@ -122,10 +127,10 @@ void graphProjectile(float angle){
     yPoint = int(yVelocity*time)-int(0.5*GRAVITY*pow(time,2));
     point(robotPos + xPoint,800-yPoint);
     time += timeIterator;
-  }while (time <200 && robotPos + xPoint<1500);
+  }while (time <200 && robotPos + xPoint<1500 && yPoint > -100);
 }
 //Calculates angles with the tolerances of how much more up and down it can go. Returns a 2d array with angle of launch (Rising or Falling) and the tolerance 
-float[][] calculateTolerances(){
+float[][] calculateAngleTolerances(){
   float[] anglesHigh = calculateTrajectory(targetHeight + targetTolerance);
   float[] anglesLow = calculateTrajectory(targetHeight - targetTolerance);
   float[][] anglesWithTolerances = new float[2][2];
@@ -134,4 +139,31 @@ float[][] calculateTolerances(){
   anglesWithTolerances[1][0] = anglesLow[1]+(anglesHigh[1]-anglesLow[1])/2;
   anglesWithTolerances[1][1] = (anglesHigh[1]-anglesLow[1])/2;
   return anglesWithTolerances;
+}
+float calculateVelocity(int tHeight, float angle){
+  float distanceToTarget = targetDistance - robotPos;
+  float heightToTarget = robotHeight - tHeight;
+  /*float term1 = 1/cos(angle);
+  float term2 = 0.5*9.8*pow(distanceToTarget,2);
+  float term3 = (distanceToTarget*tan(angle)) - heightToTarget;
+  float term2wit3 = pow(term2/term3,0.5);
+  float velocity = term1*term2wit3;*/
+  
+  float term1 = GRAVITY*pow(distanceToTarget,2);
+  float term2 = 2* pow(cos(angle),2);
+  float term3 = distanceToTarget*tan(angle)-heightToTarget;
+  float velocity = pow((term1/(term2*term3)),0.5);
+  if (debugPrint){
+    println("velocity " + velocity);
+  }
+  return velocity;
+}
+
+float calculateVelocityTolerance(float angle){
+  float[] velocities = new float[2];
+  velocities[0] = calculateVelocity(targetHeight+targetTolerance, angle);
+
+  velocities[1] = calculateVelocity(targetHeight-targetTolerance, angle);
+   
+  return velocities[1]-velocities[0];
 }
