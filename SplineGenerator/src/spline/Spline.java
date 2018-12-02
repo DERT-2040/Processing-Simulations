@@ -21,7 +21,6 @@ public class Spline
 	double minimumSinceLastPoint = 35; //The minimum number of points to be skipped since the last point 
 	double maximumSinceLastPoint = 150; //The maximum number points that can be skipped without generating a point
 	
-	int test;
 	ControlPoint lastPoint;
 	JSONObject export = new JSONObject();
 	PApplet window; //The PApplet that the spline curve is in
