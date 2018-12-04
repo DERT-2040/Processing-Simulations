@@ -16,6 +16,8 @@ public class SplineGenerator extends PApplet
 	 */
 	int controlPointMode = 0; 
 	
+	//int test = 0;
+	
 	int previousControlPointIndex = 0;
 	
 	public static void main(String[] args) 
